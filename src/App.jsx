@@ -36,11 +36,27 @@ const App = () => {
       'phone-number': 'phone',
       'requirement': 'requirement'
     };
-    setFormData(prev => ({ ...prev, [fieldMap[id]]: value }));
+
+    const key = fieldMap[id];
+
+    if (key === 'phone') {
+      // Allow only numbers and limit to 10 digits
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, [key]: numericValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [key]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Phone validation
+    if (formData.phone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number.");
+      return;
+    }
+
     if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes('YOUR_GOOGLE_SCRIPT_WEB_APP_URL')) {
       alert("Please configure your Google Script URL first!");
       return;
@@ -49,16 +65,23 @@ const App = () => {
     setStatus('loading');
 
     try {
-      // Use Query Parameters - This is the most reliable way to ensure Google Script receives the data
-      const formUrl = `${GOOGLE_SCRIPT_URL}?name=${encodeURIComponent(formData.name)}&phone=${encodeURIComponent(formData.phone)}&requirement=${encodeURIComponent(formData.requirement)}`;
+      // 1. Send data to Google Sheet
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('phone', formData.phone);
+      data.append('requirement', formData.requirement);
 
-      console.log("Submitting to URL:", formUrl);
-
-      await fetch(formUrl, {
+      await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
-        // No body needed when sending via URL params
+        body: data
       });
+
+      // 2. Redirect to WhatsApp
+      const message = `*New Inquiry via Website*%0A%0A*Name:* ${formData.name}%0A*Phone:* ${formData.phone}%0A*Requirement:* ${formData.requirement}`;
+      // Destination number: 919168948856
+      const whatsappUrl = `https://wa.me/919168948856?text=${message}`;
+      window.open(whatsappUrl, '_blank');
 
       setStatus('success');
       setFormData({ name: '', phone: '', requirement: '' });
